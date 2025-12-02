@@ -215,6 +215,16 @@ export default function SimulationDashboard() {
       requestNotificationPermission();
     }
   }, [settings.notificationsEnabled]);
+  
+  // Add toast notification
+  const addToast = useCallback((message, type = 'info', duration = 5000) => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message, type, duration }]);
+  }, []);
+  
+  const removeToast = useCallback((id) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  }, []);
 
   // Demo mode event handlers
   useEffect(() => {
@@ -266,16 +276,6 @@ export default function SimulationDashboard() {
       window.removeEventListener('clearDemoFlights', handleClearDemoFlights);
     };
   }, [inDemoMode, addToast]);
-  
-  // Add toast notification
-  const addToast = useCallback((message, type = 'info', duration = 5000) => {
-    const id = Date.now();
-    setToasts(prev => [...prev, { id, message, type, duration }]);
-  }, []);
-  
-  const removeToast = useCallback((id) => {
-    setToasts(prev => prev.filter(t => t.id !== id));
-  }, []);
   
   // Keyboard shortcuts
   useKeyboardShortcuts({
