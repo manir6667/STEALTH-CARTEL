@@ -2,16 +2,26 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authAPI } from '../services/api';
 
+// Demo mode credentials
+const DEMO_CREDENTIALS = {
+  email: 'admin@example.com',
+  password: 'strongpassword',
+  token: 'demo_token_for_preview_mode',
+  role: 'admin'
+};
+
 export default function Login() {
   const [email, setEmail] = useState('admin@example.com');
   const [password, setPassword] = useState('strongpassword');
   const [error, setError] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setIsLoading(true);
 
     try {
       if (isRegistering) {
@@ -25,7 +35,18 @@ export default function Login() {
         navigate('/dashboard');
       }
     } catch (err) {
-      setError(err.response?.data?.detail || 'Authentication failed');
+      // If backend is not available, allow demo login
+      if (email === DEMO_CREDENTIALS.email && password === DEMO_CREDENTIALS.password) {
+        console.log('🎮 Demo mode activated - Backend not available');
+        localStorage.setItem('token', DEMO_CREDENTIALS.token);
+        localStorage.setItem('role', DEMO_CREDENTIALS.role);
+        localStorage.setItem('demoMode', 'true');
+        navigate('/dashboard');
+      } else {
+        setError('Invalid credentials. Use demo credentials shown below.');
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 

@@ -18,6 +18,67 @@ import axios from 'axios';
 
 const API_BASE_URL = 'http://localhost:8001/api';
 
+// Check if we're in demo mode (no backend available)
+const isDemoMode = () => localStorage.getItem('demoMode') === 'true';
+
+// Demo data for when backend is not available
+const generateDemoFlights = () => {
+  const types = ['Commercial', 'Private', 'Military', 'Helicopter', 'Drone'];
+  const demoFlights = [];
+  
+  for (let i = 0; i < 8; i++) {
+    const baseLat = 11.6643 + (Math.random() - 0.5) * 0.5;
+    const baseLng = 78.1460 + (Math.random() - 0.5) * 0.5;
+    const inZone = Math.random() > 0.7;
+    
+    demoFlights.push({
+      id: i + 1,
+      transponder_id: `DEMO${1000 + i}`,
+      latitude: baseLat,
+      longitude: baseLng,
+      altitude: 15000 + Math.random() * 25000,
+      groundspeed: 200 + Math.random() * 400,
+      track: Math.random() * 360,
+      aircraft_type: types[Math.floor(Math.random() * types.length)],
+      classification: ['civilian_prop', 'airliner', 'high_performance', 'fighter'][Math.floor(Math.random() * 4)],
+      in_restricted_area: inZone,
+      threat_level: inZone ? ['High', 'Critical'][Math.floor(Math.random() * 2)] : 'Low',
+      timestamp: new Date().toISOString()
+    });
+  }
+  return demoFlights;
+};
+
+const demoRestrictedArea = {
+  id: 1,
+  name: 'Demo Restricted Zone',
+  polygon_json: JSON.stringify({
+    type: 'Polygon',
+    coordinates: [[
+      [78.0, 11.5],
+      [78.3, 11.5],
+      [78.3, 11.8],
+      [78.0, 11.8],
+      [78.0, 11.5]
+    ]]
+  }),
+  is_active: true
+};
+
+const generateDemoAlerts = (flights) => {
+  return flights
+    .filter(f => f.in_restricted_area)
+    .map((f, i) => ({
+      id: i + 1,
+      transponder_id: f.transponder_id,
+      severity: f.threat_level === 'Critical' ? 'CRITICAL' : 'HIGH',
+      alert_type: 'ZONE_INTRUSION',
+      message: `Aircraft ${f.transponder_id} detected in restricted airspace`,
+      detected_at: new Date().toISOString(),
+      status: 'active'
+    }));
+};
+
 /**
  * SimulationDashboard - Main integrated interface for aircraft detection simulation
  */
@@ -38,6 +99,7 @@ export default function SimulationDashboard() {
   const [showAreaManager, setShowAreaManager] = useState(false);
   const [isPlacementMode, setIsPlacementMode] = useState(false);
   const [placementConfig, setPlacementConfig] = useState(null);
+  const [inDemoMode, setInDemoMode] = useState(isDemoMode());
   
   // New enhanced states
   const [showSettings, setShowSettings] = useState(false);
@@ -129,6 +191,13 @@ export default function SimulationDashboard() {
     if (!isRunning || !settings.autoRefresh) return;
 
     const fetchFlights = async () => {
+      // Demo mode - use generated data
+      if (inDemoMode) {
+        const demoFlights = generateDemoFlights();
+        setFlights(demoFlights);
+        return;
+      }
+
       try {
         const token = localStorage.getItem('token');
         const response = await axios.get(`${API_BASE_URL}/flights`, {
@@ -151,17 +220,28 @@ export default function SimulationDashboard() {
         setFlights(Object.values(latestFlights));
       } catch (error) {
         console.error('Error fetching flights:', error);
+        // Fallback to demo mode if backend fails
+        if (!inDemoMode) {
+          setInDemoMode(true);
+          localStorage.setItem('demoMode', 'true');
+        }
       }
     };
 
     fetchFlights();
     const interval = setInterval(fetchFlights, settings.refreshInterval || 1000);
     return () => clearInterval(interval);
-  }, [isRunning, settings.autoRefresh, settings.refreshInterval]);
+  }, [isRunning, settings.autoRefresh, settings.refreshInterval, inDemoMode]);
 
   // Fetch alerts
   useEffect(() => {
     const fetchAlerts = async () => {
+      // Demo mode - generate alerts from flights
+      if (inDemoMode) {
+        setAlerts(generateDemoAlerts(flights));
+        return;
+      }
+
       try {
         const token = localStorage.getItem('token');
         const response = await axios.get(`${API_BASE_URL}/alerts`, {
@@ -178,14 +258,21 @@ export default function SimulationDashboard() {
     fetchAlerts();
     const interval = setInterval(fetchAlerts, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [inDemoMode, flights]);
 
   // Fetch restricted area
   useEffect(() => {
     fetchRestrictedAreas();
-  }, []);
+  }, [inDemoMode]);
 
   const fetchRestrictedAreas = async () => {
+    // Demo mode - use demo restricted area
+    if (inDemoMode) {
+      setRestrictedArea(demoRestrictedArea);
+      setAllRestrictedAreas([demoRestrictedArea]);
+      return;
+    }
+
     try {
       const token = localStorage.getItem('token');
       
@@ -349,7 +436,14 @@ export default function SimulationDashboard() {
           ? 'bg-gradient-to-r from-green-900/80 to-emerald-900/80' 
           : 'bg-gradient-to-r from-blue-900 to-green-900'
       }`}>
-        <div className="flex items-center justify-between">
+        {/* Demo Mode Banner */}
+        {inDemoMode && (
+          <div className="absolute top-0 left-0 right-0 bg-yellow-500 text-black text-center text-xs py-1 font-medium">
+            🎮 DEMO MODE - Simulated data (Backend not connected)
+          </div>
+        )}
+        
+        <div className={`flex items-center justify-between ${inDemoMode ? 'mt-6' : ''}`}>
           <div className="flex-1">
             <h1 className="text-2xl font-bold flex items-center gap-3">
               <span>🛡️</span>
