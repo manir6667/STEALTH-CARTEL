@@ -21,61 +21,143 @@ const API_BASE_URL = 'http://localhost:8001/api';
 // Check if we're in demo mode (no backend available)
 const isDemoMode = () => localStorage.getItem('demoMode') === 'true';
 
-// Demo data for when backend is not available
-const generateDemoFlights = () => {
-  const types = ['Commercial', 'Private', 'Military', 'Helicopter', 'Drone'];
-  const demoFlights = [];
-  
-  for (let i = 0; i < 8; i++) {
-    const baseLat = 11.6643 + (Math.random() - 0.5) * 0.5;
-    const baseLng = 78.1460 + (Math.random() - 0.5) * 0.5;
-    const inZone = Math.random() > 0.7;
-    
-    demoFlights.push({
-      id: i + 1,
-      transponder_id: `DEMO${1000 + i}`,
-      latitude: baseLat,
-      longitude: baseLng,
-      altitude: 15000 + Math.random() * 25000,
-      groundspeed: 200 + Math.random() * 400,
-      track: Math.random() * 360,
-      aircraft_type: types[Math.floor(Math.random() * types.length)],
-      classification: ['civilian_prop', 'airliner', 'high_performance', 'fighter'][Math.floor(Math.random() * 4)],
-      in_restricted_area: inZone,
-      threat_level: inZone ? ['High', 'Critical'][Math.floor(Math.random() * 2)] : 'Low',
-      timestamp: new Date().toISOString()
-    });
-  }
-  return demoFlights;
-};
-
-const demoRestrictedArea = {
+// Demo restricted area (Salem region)
+const DEMO_RESTRICTED_AREA = {
   id: 1,
-  name: 'Demo Restricted Zone',
+  name: 'Salem Airspace Control Zone',
   polygon_json: JSON.stringify({
     type: 'Polygon',
     coordinates: [[
-      [78.0, 11.5],
-      [78.3, 11.5],
-      [78.3, 11.8],
-      [78.0, 11.8],
-      [78.0, 11.5]
+      [78.05, 11.55],
+      [78.25, 11.55],
+      [78.25, 11.75],
+      [78.05, 11.75],
+      [78.05, 11.55]
     ]]
   }),
   is_active: true
 };
 
+// Parse restricted area polygon for checking
+const getRestrictedPolygon = () => {
+  try {
+    const parsed = JSON.parse(DEMO_RESTRICTED_AREA.polygon_json);
+    return parsed.coordinates[0];
+  } catch {
+    return null;
+  }
+};
+
+// Check if point is inside polygon
+const isPointInPolygon = (lat, lng, polygon) => {
+  if (!polygon) return false;
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i][0], yi = polygon[i][1];
+    const xj = polygon[j][0], yj = polygon[j][1];
+    if (((yi > lat) !== (yj > lat)) && (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi)) {
+      inside = !inside;
+    }
+  }
+  return inside;
+};
+
+// Initial demo flights - persistent aircraft with fixed IDs
+const createInitialDemoFlights = () => {
+  const flightConfigs = [
+    { id: 1, transponder_id: 'AI101', callsign: 'Air India 101', aircraft_type: 'Commercial', classification: 'airliner', lat: 11.45, lng: 77.85, track: 45, speed: 450, altitude: 35000 },
+    { id: 2, transponder_id: 'UK202', callsign: 'Vistara 202', aircraft_type: 'Commercial', classification: 'airliner', lat: 11.80, lng: 78.40, track: 225, speed: 420, altitude: 32000 },
+    { id: 3, transponder_id: 'MIL001', callsign: 'IAF Hawk', aircraft_type: 'Military', classification: 'fighter', lat: 11.60, lng: 78.10, track: 90, speed: 550, altitude: 28000 },
+    { id: 4, transponder_id: 'PVT303', callsign: 'Private Jet', aircraft_type: 'Private', classification: 'high_performance', lat: 11.55, lng: 78.30, track: 180, speed: 380, altitude: 25000 },
+    { id: 5, transponder_id: 'HEL404', callsign: 'Med Evac', aircraft_type: 'Helicopter', classification: 'civilian_prop', lat: 11.70, lng: 78.00, track: 135, speed: 150, altitude: 5000 },
+    { id: 6, transponder_id: 'DRN505', callsign: 'Survey Drone', aircraft_type: 'Drone', classification: 'civilian_prop', lat: 11.65, lng: 78.15, track: 270, speed: 80, altitude: 2000 },
+  ];
+  
+  return flightConfigs.map(config => ({
+    ...config,
+    latitude: config.lat,
+    longitude: config.lng,
+    groundspeed: config.speed,
+    in_restricted_area: false,
+    threat_level: 'Low',
+    timestamp: new Date().toISOString()
+  }));
+};
+
+// Store demo flights globally so they persist between updates
+let demoFlightsStore = null;
+
+// Update demo flights with smooth movement
+const updateDemoFlights = (existingFlights) => {
+  if (!existingFlights || existingFlights.length === 0) {
+    demoFlightsStore = createInitialDemoFlights();
+    return demoFlightsStore;
+  }
+  
+  const polygon = getRestrictedPolygon();
+  
+  const updatedFlights = existingFlights.map(flight => {
+    // Calculate movement based on track and speed
+    const speedKmH = flight.groundspeed * 1.852; // knots to km/h
+    const distancePerSecond = speedKmH / 3600; // km per second
+    const distanceDeg = distancePerSecond / 111; // approximate degrees per second
+    
+    const trackRad = (flight.track * Math.PI) / 180;
+    let newLat = flight.latitude + Math.cos(trackRad) * distanceDeg;
+    let newLng = flight.longitude + Math.sin(trackRad) * distanceDeg;
+    
+    // Boundary check - reverse direction if going too far
+    let newTrack = flight.track;
+    if (newLat < 11.3 || newLat > 12.0 || newLng < 77.7 || newLng > 78.6) {
+      newTrack = (flight.track + 180) % 360;
+      newLat = flight.latitude;
+      newLng = flight.longitude;
+    }
+    
+    // Check if in restricted area
+    const inZone = isPointInPolygon(newLat, newLng, polygon);
+    let threatLevel = 'Low';
+    if (inZone) {
+      threatLevel = flight.aircraft_type === 'Military' ? 'Medium' : 
+                    flight.aircraft_type === 'Drone' ? 'Critical' : 'High';
+    }
+    
+    return {
+      ...flight,
+      latitude: newLat,
+      longitude: newLng,
+      track: newTrack,
+      in_restricted_area: inZone,
+      threat_level: threatLevel,
+      timestamp: new Date().toISOString()
+    };
+  });
+  
+  demoFlightsStore = updatedFlights;
+  return updatedFlights;
+};
+
+// Get current demo flights (create if needed, update if exists)
+const getDemoFlights = (existingFlights) => {
+  return updateDemoFlights(existingFlights || demoFlightsStore);
+};
+
+// Generate alerts based on current flights
 const generateDemoAlerts = (flights) => {
   return flights
     .filter(f => f.in_restricted_area)
     .map((f, i) => ({
-      id: i + 1,
+      id: f.id * 100 + i,
       transponder_id: f.transponder_id,
-      severity: f.threat_level === 'Critical' ? 'CRITICAL' : 'HIGH',
+      callsign: f.callsign,
+      severity: f.threat_level === 'Critical' ? 'CRITICAL' : f.threat_level === 'High' ? 'HIGH' : 'MEDIUM',
       alert_type: 'ZONE_INTRUSION',
-      message: `Aircraft ${f.transponder_id} detected in restricted airspace`,
+      message: `${f.callsign || f.transponder_id} (${f.aircraft_type}) entered restricted airspace`,
       detected_at: new Date().toISOString(),
-      status: 'active'
+      status: 'active',
+      latitude: f.latitude,
+      longitude: f.longitude,
+      altitude: f.altitude
     }));
 };
 
@@ -133,6 +215,57 @@ export default function SimulationDashboard() {
       requestNotificationPermission();
     }
   }, [settings.notificationsEnabled]);
+
+  // Demo mode event handlers
+  useEffect(() => {
+    if (!inDemoMode) return;
+
+    const handleAddDemoFlights = (e) => {
+      const { count, heading, speed, aircraftType } = e.detail;
+      const types = ['Commercial', 'Private', 'Military', 'Helicopter', 'Drone'];
+      const selectedType = aircraftType || types[Math.floor(Math.random() * types.length)];
+      
+      const newFlights = [];
+      for (let i = 0; i < count; i++) {
+        const id = Date.now() + i;
+        newFlights.push({
+          id,
+          transponder_id: `SIM${id % 10000}`,
+          callsign: `Simulated ${selectedType}`,
+          latitude: 11.5 + Math.random() * 0.4,
+          longitude: 77.9 + Math.random() * 0.4,
+          altitude: 20000 + Math.random() * 20000,
+          groundspeed: speed || 300 + Math.random() * 200,
+          track: heading !== undefined ? heading : Math.random() * 360,
+          aircraft_type: selectedType,
+          classification: selectedType === 'Military' ? 'fighter' : 'airliner',
+          in_restricted_area: false,
+          threat_level: 'Low',
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      if (demoFlightsStore) {
+        demoFlightsStore = [...demoFlightsStore, ...newFlights];
+      }
+      setFlights(prev => [...prev, ...newFlights]);
+      addToast(`✈️ Added ${count} new aircraft to simulation`, 'success');
+    };
+
+    const handleClearDemoFlights = () => {
+      demoFlightsStore = createInitialDemoFlights();
+      setFlights(demoFlightsStore);
+      addToast('🗑️ Cleared all flights, reset to default', 'warning');
+    };
+
+    window.addEventListener('addDemoFlights', handleAddDemoFlights);
+    window.addEventListener('clearDemoFlights', handleClearDemoFlights);
+    
+    return () => {
+      window.removeEventListener('addDemoFlights', handleAddDemoFlights);
+      window.removeEventListener('clearDemoFlights', handleClearDemoFlights);
+    };
+  }, [inDemoMode, addToast]);
   
   // Add toast notification
   const addToast = useCallback((message, type = 'info', duration = 5000) => {
@@ -191,10 +324,9 @@ export default function SimulationDashboard() {
     if (!isRunning || !settings.autoRefresh) return;
 
     const fetchFlights = async () => {
-      // Demo mode - use generated data
+      // Demo mode - use persistent demo flights with smooth movement
       if (inDemoMode) {
-        const demoFlights = generateDemoFlights();
-        setFlights(demoFlights);
+        setFlights(prevFlights => getDemoFlights(prevFlights));
         return;
       }
 
@@ -268,8 +400,8 @@ export default function SimulationDashboard() {
   const fetchRestrictedAreas = async () => {
     // Demo mode - use demo restricted area
     if (inDemoMode) {
-      setRestrictedArea(demoRestrictedArea);
-      setAllRestrictedAreas([demoRestrictedArea]);
+      setRestrictedArea(DEMO_RESTRICTED_AREA);
+      setAllRestrictedAreas([DEMO_RESTRICTED_AREA]);
       return;
     }
 
@@ -365,21 +497,55 @@ export default function SimulationDashboard() {
   const handlePlaceAircraft = async (lat, lng) => {
     if (!isPlacementMode || !placementConfig) return;
 
+    // Generate transponder ID
+    const prefix = {
+      'commercial': 'COM',
+      'private': 'PVT',
+      'military': 'MIL',
+      'helicopter': 'HEL',
+      'drone': 'DRN'
+    }[placementConfig.aircraftType] || 'UNK';
+    const transponder_id = placementConfig.hasTransponder 
+      ? `${prefix}${Math.floor(Math.random() * 9000) + 1000}`
+      : null;
+
+    // Demo mode - add directly to flights state
+    if (inDemoMode) {
+      const polygon = getRestrictedPolygon();
+      const inZone = isPointInPolygon(lat, lng, polygon);
+      
+      const newFlight = {
+        id: Date.now(),
+        transponder_id: transponder_id || `GHOST${Math.floor(Math.random() * 1000)}`,
+        callsign: `Manual ${placementConfig.aircraftType}`,
+        latitude: lat,
+        longitude: lng,
+        altitude: placementConfig.altitude,
+        groundspeed: placementConfig.speed,
+        track: placementConfig.heading,
+        aircraft_type: placementConfig.aircraftType.charAt(0).toUpperCase() + placementConfig.aircraftType.slice(1),
+        classification: placementConfig.aircraftType === 'military' ? 'fighter' : 
+                       placementConfig.aircraftType === 'commercial' ? 'airliner' : 'civilian_prop',
+        in_restricted_area: inZone,
+        threat_level: inZone ? 'High' : 'Low',
+        timestamp: new Date().toISOString()
+      };
+
+      // Add to demo store and state
+      if (demoFlightsStore) {
+        demoFlightsStore = [...demoFlightsStore, newFlight];
+      }
+      setFlights(prev => [...prev, newFlight]);
+      
+      // Dispatch event to update placement counter
+      window.dispatchEvent(new Event('aircraftPlaced'));
+      addToast(`✈️ ${newFlight.aircraft_type} placed at ${lat.toFixed(4)}, ${lng.toFixed(4)}`, 'success');
+      return;
+    }
+
+    // Backend mode - use API
     try {
       const token = localStorage.getItem('token');
-      
-      // Generate transponder ID if needed
-      let transponder_id = null;
-      if (placementConfig.hasTransponder) {
-        const prefix = {
-          'commercial': 'COM',
-          'private': 'PVT',
-          'military': 'MIL',
-          'helicopter': 'HEL',
-          'drone': 'DRN'
-        }[placementConfig.aircraftType] || 'UNK';
-        transponder_id = `${prefix}${Math.floor(Math.random() * 9000) + 1000}`;
-      }
 
       // Register manual flight (will create trajectory through zone)
       const registerResponse = await axios.post(
@@ -404,6 +570,7 @@ export default function SimulationDashboard() {
       window.dispatchEvent(new Event('aircraftPlaced'));
     } catch (error) {
       console.error('Error placing aircraft:', error);
+      addToast('Failed to place aircraft', 'error');
     }
   };
 
@@ -438,8 +605,8 @@ export default function SimulationDashboard() {
       }`}>
         {/* Demo Mode Banner */}
         {inDemoMode && (
-          <div className="absolute top-0 left-0 right-0 bg-yellow-500 text-black text-center text-xs py-1 font-medium">
-            🎮 DEMO MODE - Simulated data (Backend not connected)
+          <div className="absolute top-0 left-0 right-0 bg-gradient-to-r from-green-600 to-blue-600 text-white text-center text-xs py-1.5 font-medium">
+            🎮 DEMO MODE - Full access enabled | Place aircraft, view alerts, and explore all features!
           </div>
         )}
         
