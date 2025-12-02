@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aircraft Detection & Threat Assessment System</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1>Aircraft Detection & Threat Assessment System</h1>
+                <div class="status-bar">
+                    <div class="status-item">
+                        <span class="status-label">API Status:</span>
+                        <span id="api-status" class="status-value">Checking...</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Total Detections:</span>
+                        <span id="total-detections" class="status-value">-</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Active Alerts:</span>
+                        <span id="active-alerts" class="status-value">-</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Left Panel - Statistics -->
+            <aside class="left-panel">
+                <div class="panel-section">
+                    <h2>System Metrics</h2>
+                    <div class="metric-grid">
+                        <div class="metric-item">
+                            <div class="metric-label">Total Frames</div>
+                            <div class="metric-value" id="total-frames">-</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Unique Tracks</div>
+                            <div class="metric-value" id="unique-tracks">-</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Avg FPS</div>
+                            <div class="metric-value" id="avg-fps">-</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Processing Time</div>
+                            <div class="metric-value" id="processing-time">-</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h2>Threat Distribution</h2>
+                    <div class="threat-list">
+                        <div class="threat-item threat-critical">
+                            <span class="threat-label">Critical</span>
+                            <span class="threat-count" id="critical-count">0</span>
+                        </div>
+                        <div class="threat-item threat-high">
+                            <span class="threat-label">High</span>
+                            <span class="threat-count" id="high-count">0</span>
+                        </div>
+                        <div class="threat-item threat-medium">
+                            <span class="threat-label">Medium</span>
+                            <span class="threat-count" id="medium-count">0</span>
+                        </div>
+                        <div class="threat-item threat-low">
+                            <span class="threat-label">Low</span>
+                            <span class="threat-count" id="low-count">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h2>Aircraft Types</h2>
+                    <div id="aircraft-types" class="aircraft-list">
+                        <div class="loading">Loading data...</div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Center Panel - Detection Log -->
+            <main class="center-panel">
+                <div class="panel-section">
+                    <div class="section-header">
+                        <h2>Recent Detections</h2>
+                        <div class="controls">
+                            <select id="filter-threat" class="filter-select">
+                                <option value="">All Threats</option>
+                                <option value="Critical">Critical</option>
+                                <option value="High">High</option>
+                                <option value="Medium">Medium</option>
+                                <option value="Low">Low</option>
+                            </select>
+                            <input type="number" id="filter-limit" class="filter-input" placeholder="Limit" value="50">
+                            <button id="btn-refresh" class="btn btn-primary">Refresh</button>
+                        </div>
+                    </div>
+
+                    <div class="detection-table-container">
+                        <table class="detection-table">
+                            <thead>
+                                <tr>
+                                    <th>Frame</th>
+                                    <th>ID</th>
+                                    <th>Type</th>
+                                    <th>Speed (kt)</th>
+                                    <th>Altitude (ft)</th>
+                                    <th>Transponder</th>
+                                    <th>Threat</th>
+                                    <th>Score</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detection-tbody">
+                                <tr>
+                                    <td colspan="9" class="loading">Loading detections...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </main>
+
+            <!-- Right Panel - Alerts -->
+            <aside class="right-panel">
+                <div class="panel-section">
+                    <h2>Live Alerts</h2>
+                    <div class="ws-status">
+                        <span id="ws-status" class="ws-indicator">●</span>
+                        <span id="ws-status-text">Disconnected</span>
+                    </div>
+                    <div id="alerts-container" class="alerts-list">
+                        <div class="alert-placeholder">No active alerts</div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <!-- Detection Details Modal -->
+    <div id="details-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Detection Details</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="modal-details"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

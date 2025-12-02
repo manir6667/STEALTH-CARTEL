@@ -1,0 +1,518 @@
+/* Professional, Clean Styling - No Fancy Effects */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --bg-primary: #f5f5f5;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #e9ecef;
+    --text-primary: #212529;
+    --text-secondary: #6c757d;
+    --border-color: #dee2e6;
+    --critical: #dc3545;
+    --high: #fd7e14;
+    --medium: #ffc107;
+    --low: #28a745;
+    --accent: #0d6efd;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.6;
+}
+
+.container {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header */
+.header {
+    background-color: var(--bg-secondary);
+    border-bottom: 2px solid var(--border-color);
+    padding: 1rem 1.5rem;
+}
+
+.header-content h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+}
+
+.status-bar {
+    display: flex;
+    gap: 2rem;
+}
+
+.status-item {
+    display: flex;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.status-label {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.status-value {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+/* Main Content */
+.main-content {
+    display: grid;
+    grid-template-columns: 280px 1fr 320px;
+    gap: 1.5rem;
+    padding: 1.5rem;
+    flex: 1;
+}
+
+/* Panels */
+.left-panel,
+.center-panel,
+.right-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.panel-section {
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 1.25rem;
+}
+
+.panel-section h2 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+}
+
+/* Metrics Grid */
+.metric-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.metric-item {
+    text-align: center;
+    padding: 0.75rem;
+    background-color: var(--bg-tertiary);
+    border-radius: 4px;
+}
+
+.metric-label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+}
+
+.metric-value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+/* Threat List */
+.threat-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.threat-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    border-radius: 4px;
+    border-left: 4px solid;
+}
+
+.threat-critical {
+    background-color: #fff5f5;
+    border-left-color: var(--critical);
+}
+
+.threat-high {
+    background-color: #fff8f0;
+    border-left-color: var(--high);
+}
+
+.threat-medium {
+    background-color: #fffcf0;
+    border-left-color: var(--medium);
+}
+
+.threat-low {
+    background-color: #f0fff4;
+    border-left-color: var(--low);
+}
+
+.threat-label {
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.threat-count {
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+
+/* Aircraft Types */
+.aircraft-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.aircraft-type-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--bg-tertiary);
+}
+
+.aircraft-type-item:last-child {
+    border-bottom: none;
+}
+
+.aircraft-type-name {
+    font-size: 0.9rem;
+    text-transform: capitalize;
+}
+
+.aircraft-type-count {
+    font-weight: 600;
+    color: var(--accent);
+}
+
+/* Section Header */
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.section-header h2 {
+    margin-bottom: 0;
+}
+
+.controls {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Form Controls */
+.filter-select,
+.filter-input {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 0.9rem;
+    background-color: var(--bg-secondary);
+}
+
+.filter-input {
+    width: 80px;
+}
+
+.btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.btn-primary {
+    background-color: var(--accent);
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #0b5ed7;
+}
+
+.btn-secondary {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.btn-secondary:hover {
+    background-color: #dde0e3;
+}
+
+/* Detection Table */
+.detection-table-container {
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: calc(100vh - 250px);
+}
+
+.detection-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.detection-table th {
+    background-color: var(--bg-tertiary);
+    padding: 0.75rem 0.5rem;
+    text-align: left;
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.detection-table td {
+    padding: 0.75rem 0.5rem;
+    border-bottom: 1px solid var(--bg-tertiary);
+}
+
+.detection-table tbody tr:hover {
+    background-color: var(--bg-tertiary);
+}
+
+.threat-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    display: inline-block;
+}
+
+.threat-badge-critical {
+    background-color: var(--critical);
+    color: white;
+}
+
+.threat-badge-high {
+    background-color: var(--high);
+    color: white;
+}
+
+.threat-badge-medium {
+    background-color: var(--medium);
+    color: #000;
+}
+
+.threat-badge-low {
+    background-color: var(--low);
+    color: white;
+}
+
+/* Alerts Panel */
+.ws-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding: 0.5rem;
+    background-color: var(--bg-tertiary);
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+
+.ws-indicator {
+    font-size: 1.2rem;
+}
+
+.ws-indicator.connected {
+    color: var(--low);
+}
+
+.ws-indicator.disconnected {
+    color: var(--text-secondary);
+}
+
+.alerts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-height: calc(100vh - 300px);
+    overflow-y: auto;
+}
+
+.alert-item {
+    padding: 0.75rem;
+    border-radius: 4px;
+    border-left: 4px solid;
+    font-size: 0.85rem;
+}
+
+.alert-item.critical {
+    background-color: #fff5f5;
+    border-left-color: var(--critical);
+}
+
+.alert-item.high {
+    background-color: #fff8f0;
+    border-left-color: var(--high);
+}
+
+.alert-time {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    margin-bottom: 0.25rem;
+}
+
+.alert-text {
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+}
+
+.alert-details {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+.alert-placeholder {
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 2rem 1rem;
+}
+
+/* Modal */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+}
+
+.modal.active {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background-color: var(--bg-secondary);
+    border-radius: 4px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.modal-header h3 {
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+}
+
+.modal-close:hover {
+    color: var(--text-primary);
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--bg-tertiary);
+}
+
+.detail-row:last-child {
+    border-bottom: none;
+}
+
+.detail-label {
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.detail-value {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Loading */
+.loading {
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 2rem 1rem;
+}
+
+/* Responsive */
+@media (max-width: 1400px) {
+    .main-content {
+        grid-template-columns: 250px 1fr 280px;
+    }
+}
+
+@media (max-width: 1200px) {
+    .main-content {
+        grid-template-columns: 1fr;
+    }
+    
+    .left-panel,
+    .right-panel {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .status-bar {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+    
+    .controls {
+        width: 100%;
+    }
+    
+    .filter-select,
+    .filter-input,
+    .btn {
+        flex: 1;
+    }
+}

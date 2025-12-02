@@ -175,8 +175,15 @@ async def list_flights(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """List recent flights"""
-    flights = db.query(Flight).order_by(Flight.timestamp.desc()).limit(limit).all()
+    """List recent flights - only show active flights from last 30 seconds"""
+    from datetime import timedelta
+    
+    # Only get flights from the last 30 seconds (active flights)
+    cutoff_time = datetime.utcnow() - timedelta(seconds=30)
+    
+    flights = db.query(Flight).filter(
+        Flight.timestamp >= cutoff_time
+    ).order_by(Flight.timestamp.desc()).limit(limit).all()
     return flights
 
 
@@ -191,3 +198,31 @@ async def get_flight(
     if not flight:
         raise HTTPException(status_code=404, detail="Flight not found")
     return flight
+
+
+@router.delete("/clear-all")
+async def clear_all_flights(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Clear all flight records from database"""
+    count = db.query(Flight).count()
+    db.query(Flight).delete()
+    db.query(Alert).delete()
+    db.commit()
+    return {"status": "success", "message": f"Cleared {count} flight records and all alerts"}
+
+
+@router.delete("/clear-old")
+async def clear_old_flights(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Clear flights older than 60 seconds"""
+    from datetime import timedelta
+    
+    cutoff_time = datetime.utcnow() - timedelta(seconds=60)
+    count = db.query(Flight).filter(Flight.timestamp < cutoff_time).count()
+    db.query(Flight).filter(Flight.timestamp < cutoff_time).delete()
+    db.commit()
+    return {"status": "success", "message": f"Cleared {count} old flight records"}

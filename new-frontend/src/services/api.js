@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8000/api';
+const API_BASE_URL = 'http://localhost:8001/api';
 
 // Create axios instance
 const api = axios.create({
@@ -58,7 +58,20 @@ export const restrictedAreasAPI = {
   getActive: () => api.get('/restricted-areas/active'),
   create: (name, polygon_json) => 
     api.post('/restricted-areas/', { name, polygon_json }),
-  toggle: (areaId) => api.patch(`/restricted-areas/${areaId}/toggle`)
+  toggle: (areaId) => api.patch(`/restricted-areas/${areaId}/toggle`),
+  update: (areaId, data) => api.patch(`/restricted-areas/${areaId}`, data),
+  delete: (areaId) => api.delete(`/restricted-areas/${areaId}`)
+};
+
+// Simulator API
+export const simulatorAPI = {
+  start: (data) => api.post('/simulator/start', data),
+  sendAllTelemetry: () => api.post('/simulator/send-all-combined'),
+  clear: () => api.delete('/simulator/clear'),
+  clearManual: () => api.delete('/simulator/manual/clear'),
+  status: () => api.get('/simulator/status'),
+  registerManual: (telemetry) => api.post('/simulator/manual/register', telemetry),
+  previewTrajectory: (data) => api.post('/simulator/preview-trajectory', data)
 };
 
 // WebSocket connection
@@ -69,7 +82,7 @@ export class WebSocketService {
   }
 
   connect() {
-    this.ws = new WebSocket('ws://localhost:8000/ws');
+    this.ws = new WebSocket('ws://localhost:8001/ws');
     
     this.ws.onopen = () => {
       console.log('WebSocket connected');

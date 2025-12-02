@@ -1,0 +1,76 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Models (large files)
+models/*.pt
+models/*.pth
+models/*.onnx
+
+# Outputs
+outputs/*.mp4
+outputs/*.avi
+outputs/*.json
+outputs/*.png
+outputs/*.jpg
+
+# Sample data (can be large)
+sample_videos/*.mp4
+sample_videos/*.avi
+sample_data/*.csv
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+
+# Homography calibration
+homography.json
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Docker
+*.tar
+*.tar.gz

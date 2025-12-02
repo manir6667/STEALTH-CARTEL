@@ -12,16 +12,14 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950">
-      {/* Logout button overlay */}
-      <div className="absolute top-4 right-4 z-50">
-        <button
-          onClick={handleLogout}
-          className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded shadow-lg transition"
-        >
-          Logout
-        </button>
-      </div>
+    <div className="min-h-screen bg-gray-950 relative">
+      {/* Logout button - fixed position */}
+      <button
+        onClick={handleLogout}
+        className="fixed top-5 right-5 z-50 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded shadow-lg transition text-sm"
+      >
+        Logout
+      </button>
 
       {/* Main simulation dashboard */}
       <SimulationDashboard />

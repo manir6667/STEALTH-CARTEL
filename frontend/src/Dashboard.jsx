@@ -4,7 +4,7 @@ function Dashboard({ token, setSelectedId }) {
   const [detections, setDetections] = useState([]);
 
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/detections", {
+    fetch("http://127.0.0.1:8001/detections", {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => res.json())

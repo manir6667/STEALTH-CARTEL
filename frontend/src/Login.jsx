@@ -10,7 +10,7 @@ function Login({ setToken }) {
     const formData = new FormData();
     formData.append("username", username);
     formData.append("password", password);
-    const res = await fetch("http://127.0.0.1:8000/login", {
+    const res = await fetch("http://127.0.0.1:8001/login", {
       method: "POST",
       body: formData,
     });

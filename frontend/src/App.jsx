@@ -24,7 +24,7 @@ function App() {
 function AircraftDetail({ token, detectionId }) {
   const [detail, setDetail] = React.useState(null);
   React.useEffect(() => {
-    fetch(`http://127.0.0.1:8000/predict/${detectionId}`, {
+    fetch(`http://127.0.0.1:8001/predict/${detectionId}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => res.json())

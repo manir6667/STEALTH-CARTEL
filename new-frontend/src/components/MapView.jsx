@@ -1,52 +1,78 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polygon, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polygon, Polyline, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import RestrictedAreaEditor from './RestrictedAreaEditor';
+
+// Map click handler for manual aircraft placement
+function MapClickHandler({ onPlaceAircraft }) {
+  useMapEvents({
+    click(e) {
+      const { lat, lng } = e.latlng;
+      onPlaceAircraft(lat, lng);
+    },
+  });
+  return null;
+}
 
 // Animated Marker Component with smooth movement
 function AnimatedMarker({ flightId, position, icon, children, eventHandlers }) {
   const markerRef = useRef(null);
   const [internalPosition, setInternalPosition] = useState(position);
-  const previousPositionRef = useRef(position);
   const animationFrameRef = useRef(null);
+  const targetPositionRef = useRef(position);
+  const currentPositionRef = useRef(position);
+  const lastUpdateTimeRef = useRef(Date.now());
 
   useEffect(() => {
     const [newLat, newLng] = position;
-    const [prevLat, prevLng] = previousPositionRef.current;
+    const [currentLat, currentLng] = currentPositionRef.current;
     
     // Calculate distance moved
-    const latDiff = Math.abs(newLat - prevLat);
-    const lngDiff = Math.abs(newLng - prevLng);
+    const latDiff = Math.abs(newLat - currentLat);
+    const lngDiff = Math.abs(newLng - currentLng);
     
-    // Only animate if position changed significantly
-    if (latDiff > 0.0001 || lngDiff > 0.0001) {
-  // Animate to new position over ~1s to match simulator update rate
-  const startTime = Date.now();
-  const duration = 1000; // keep in sync with backend/simulator tick
+    // Update target position - always animate FROM current position TO new position
+    targetPositionRef.current = position;
+    
+    // Only start new animation if position changed significantly
+    if (latDiff > 0.00001 || lngDiff > 0.00001) {
+      // Cancel any existing animation
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      
+      // Capture the current interpolated position as the starting point
+      const startLat = currentPositionRef.current[0];
+      const startLng = currentPositionRef.current[1];
+      const startTime = Date.now();
+      const duration = 950; // Slightly less than 1s update interval for smooth overlap
       
       const animate = () => {
         const elapsed = Date.now() - startTime;
         const progress = Math.min(elapsed / duration, 1);
         
-        // Linear interpolation
-        const currentLat = prevLat + (newLat - prevLat) * progress;
-        const currentLng = prevLng + (newLng - prevLng) * progress;
+        // Smooth easing function for more natural movement
+        const easeProgress = progress < 0.5 
+          ? 2 * progress * progress 
+          : 1 - Math.pow(-2 * progress + 2, 2) / 2;
         
-        setInternalPosition([currentLat, currentLng]);
+        // Linear interpolation from start to target
+        const [targetLat, targetLng] = targetPositionRef.current;
+        const interpLat = startLat + (targetLat - startLat) * easeProgress;
+        const interpLng = startLng + (targetLng - startLng) * easeProgress;
+        
+        // Update both the displayed position and the current position ref
+        currentPositionRef.current = [interpLat, interpLng];
+        setInternalPosition([interpLat, interpLng]);
         
         if (progress < 1) {
           animationFrameRef.current = requestAnimationFrame(animate);
-        } else {
-          previousPositionRef.current = position;
         }
       };
       
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-      
       animationFrameRef.current = requestAnimationFrame(animate);
+      lastUpdateTimeRef.current = Date.now();
     }
     
     return () => {
@@ -55,6 +81,12 @@ function AnimatedMarker({ flightId, position, icon, children, eventHandlers }) {
       }
     };
   }, [position[0], position[1]]);
+
+  // Initialize position on mount
+  useEffect(() => {
+    currentPositionRef.current = position;
+    setInternalPosition(position);
+  }, []);
 
   return (
     <Marker
@@ -111,12 +143,12 @@ function FitBoundsOnPolygon({ polygonCoords }) {
   return null;
 }
 
-export default function MapView({ flights, restrictedArea, allRestrictedAreas, onFlightClick, showAreaEditor, onAreaCreated, onEditorClose }) {
+export default function MapView({ flights, restrictedArea, allRestrictedAreas, onFlightClick, showAreaEditor, onAreaCreated, onEditorClose, isPlacementMode, placementConfig, onPlaceAircraft, showTrails = true }) {
   // Salem, Tamil Nadu coordinates as default
   const [center, setCenter] = useState([11.6643, 78.1460]); 
   const [polygonCoords, setPolygonCoords] = useState([]);
   const [allPolygons, setAllPolygons] = useState([]);
-  // Trails removed per request to avoid long guiding lines
+  const [flightTrails, setFlightTrails] = useState({}); // Store trail history for each flight
 
   // Keep only one latest record per aircraft (single moving dot)
   const uniqueFlights = useMemo(() => {
@@ -141,6 +173,47 @@ export default function MapView({ flights, restrictedArea, allRestrictedAreas, o
     }
     return Array.from(byId.values()).map(v => v.f);
   }, [flights]);
+
+  // Update flight trails when flights change
+  useEffect(() => {
+    if (!showTrails) return;
+    
+    setFlightTrails(prev => {
+      const newTrails = { ...prev };
+      const maxTrailLength = 20; // Keep last 20 positions
+      
+      uniqueFlights.forEach(flight => {
+        const key = flight.transponder_id || flight.id;
+        if (!key || !flight.latitude || !flight.longitude) return;
+        
+        const position = [flight.latitude, flight.longitude];
+        
+        if (!newTrails[key]) {
+          newTrails[key] = [position];
+        } else {
+          const lastPos = newTrails[key][newTrails[key].length - 1];
+          // Only add if position changed significantly
+          const dist = Math.sqrt(
+            Math.pow(position[0] - lastPos[0], 2) + 
+            Math.pow(position[1] - lastPos[1], 2)
+          );
+          if (dist > 0.0001) {
+            newTrails[key] = [...newTrails[key], position].slice(-maxTrailLength);
+          }
+        }
+      });
+      
+      // Remove trails for flights that no longer exist
+      const activeKeys = new Set(uniqueFlights.map(f => f.transponder_id || f.id));
+      Object.keys(newTrails).forEach(key => {
+        if (!activeKeys.has(key)) {
+          delete newTrails[key];
+        }
+      });
+      
+      return newTrails;
+    });
+  }, [uniqueFlights, showTrails]);
 
   useEffect(() => {
     if (restrictedArea && restrictedArea.polygon_json) {
@@ -188,10 +261,18 @@ export default function MapView({ flights, restrictedArea, allRestrictedAreas, o
       <MapContainer
         center={center}
         zoom={10}
+        minZoom={2}
+        maxBounds={[[-90, -180], [90, 180]]}
+        maxBoundsViscosity={1.0}
+        worldCopyJump={false}
         className="h-full w-full"
       >
         {/* Auto-fit to restricted polygon so crossings are visible */}
         <FitBoundsOnPolygon polygonCoords={polygonCoords} />
+        {/* Map click handler for manual placement */}
+        {isPlacementMode && onPlaceAircraft && (
+          <MapClickHandler onPlaceAircraft={onPlaceAircraft} />
+        )}
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -234,6 +315,25 @@ export default function MapView({ flights, restrictedArea, allRestrictedAreas, o
         ))}
 
         {/* Trails removed: markers will move smoothly without guide lines */}
+
+        {/* Flight trails - show path history */}
+        {showTrails && Object.entries(flightTrails).map(([key, trail]) => {
+          if (trail.length < 2) return null;
+          const flight = uniqueFlights.find(f => (f.transponder_id || f.id) === key);
+          const color = flight?.in_restricted_area ? '#ef4444' : '#3b82f6';
+          return (
+            <Polyline
+              key={`trail-${key}`}
+              positions={trail}
+              pathOptions={{
+                color: color,
+                weight: 2,
+                opacity: 0.6,
+                dashArray: '4,4',
+              }}
+            />
+          );
+        })}
 
         {/* Flight markers with animation (single dot per aircraft) */}
         {uniqueFlights.map((flight) => {

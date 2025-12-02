@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Polygon, useMapEvents } from 'react-leaflet';
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8000/api';
+const API_BASE_URL = 'http://localhost:8001/api';
 
 /**
  * RestrictedAreaEditor - Draw custom restricted zones on the map

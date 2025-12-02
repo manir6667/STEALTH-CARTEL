@@ -8,7 +8,7 @@ from typing import List
 import json
 
 from app.database import init_db, get_db
-from app.routes import auth, flights, alerts, restricted_areas
+from app.routes import auth, flights, alerts, restricted_areas, simulator
 from app.models import User
 from app.auth import get_password_hash
 
@@ -53,29 +53,7 @@ async def lifespan(app: FastAPI):
         db.add(admin_user)
         db.commit()
     
-    # Seed restricted area in Salem, Tamil Nadu if not exists
-    from app.models import RestrictedArea
-    existing_area = db.query(RestrictedArea).filter(RestrictedArea.is_active == True).first()
-    if not existing_area:
-        # Create a restricted area around Salem, Tamil Nadu, India
-        # Salem coordinates: approximately 11.65°N, 78.15°E
-        restricted_area = RestrictedArea(
-            name="Salem Military Airspace - Restricted Zone",
-            polygon_json=json.dumps({
-                "type": "Polygon",
-                "coordinates": [[
-                    [78.10, 11.70],  # Northwest corner
-                    [78.20, 11.70],  # Northeast corner
-                    [78.20, 11.60],  # Southeast corner
-                    [78.10, 11.60],  # Southwest corner
-                    [78.10, 11.70]   # Close polygon
-                ]]
-            }),
-            is_active=True
-        )
-        db.add(restricted_area)
-        db.commit()
-        print("✓ Created restricted area in Salem, Tamil Nadu, India")
+    # Don't create any default restricted areas - let users draw their own
     
     db.close()
     
@@ -104,6 +82,7 @@ app.include_router(auth.router)
 app.include_router(flights.router)
 app.include_router(alerts.router)
 app.include_router(restricted_areas.router)
+app.include_router(simulator.router)
 
 
 @app.get("/")
@@ -149,4 +128,6 @@ async def broadcast_alert(alert_data: dict):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    import os
+    port = int(os.getenv("PORT", 8001))
+    uvicorn.run(app, host="0.0.0.0", port=port)

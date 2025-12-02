@@ -1,0 +1,73 @@
+video:
+  input_path: "sample_videos/standard_test.mp4"
+  output_path: "outputs/annotated_output.mp4"
+  fps: 25
+  skip_frames: 1  # process every Nth frame
+
+detector:
+  model_path: "models/yolov8n.pt"
+  conf_threshold: 0.35
+  iou_threshold: 0.45
+  device: "cpu"
+  classes: [4]  # COCO airplane class
+
+classifier:
+  use_classifier: true
+  device: "cpu"
+  model_name: "efficientnet_b0"
+  num_classes: 6  # fighter, airliner, private_jet, propeller, drone, unknown
+  checkpoint_path: "models/aircraft_classifier.pth"
+
+tracking:
+  method: "bytetrack"  # "bytetrack" or "norfair"
+  max_distance: 100
+  track_buffer: 30
+  match_threshold: 0.8
+
+homography:
+  file: "homography.json"
+  use_homography: false  # set true if homography.json exists
+  fallback_object_width_m: 28.0  # typical airliner wingspan
+  fallback_altitude_m: 1000.0  # assumed altitude for monocular speed
+  camera_focal_length_px: 1000.0  # estimated
+
+threat:
+  zone_polygons_file: "restricted_zones.geojson"
+  allowlist_file: "allowlist.csv"
+  weights:
+    in_restricted_zone: 40
+    no_transponder: 25
+    high_speed: 15
+    military_classification: 10
+    low_altitude: 10
+  thresholds:
+    high_speed_kt: 400
+    low_altitude_ft: 5000
+  levels:
+    low: [0, 25]
+    medium: [25, 50]
+    high: [50, 70]
+    critical: [70, 100]
+
+adsb:
+  csv_path: "adsb_data.csv"
+  enabled: false
+  match_radius_m: 50.0
+  match_time_s: 2.0
+
+server:
+  host: "0.0.0.0"
+  port: 8000
+  api_key: "demo_api_key"
+  cors_origins: ["*"]
+
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  file: "outputs/app.log"
+
+output:
+  logs_file: "outputs/logs.json"
+  metrics_file: "outputs/metrics.json"
+  annotate_video: true
+  save_crops: false
+  crops_dir: "outputs/crops"

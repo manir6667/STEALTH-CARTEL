@@ -1,18 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import RadarSweep from './RadarSweep';
 import MapView from './MapView';
 import AircraftCategoriesMenu from './AircraftCategoriesMenu';
 import ControlPanel from './ControlPanel';
 import RestrictedAreaEditor from './RestrictedAreaEditor';
 import RestrictedAreaManager from './RestrictedAreaManager';
+import FlightSimulatorControl from './FlightSimulatorControl';
+import ManualFlightPlacer from './ManualFlightPlacer';
+import AnalyticsDashboard from './AnalyticsDashboard';
+import IncidentHistory from './IncidentHistory';
+import SettingsPage from './SettingsPage';
+import { useKeyboardShortcuts, KeyboardShortcutsHelp } from './KeyboardShortcuts';
+import { useSoundAlerts, playSuccessSound, playClickSound } from './SoundManager';
+import { ToastContainer, useNotifications, requestNotificationPermission } from './NotificationManager';
+import { useTheme } from '../context/ThemeContext';
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8000/api';
+const API_BASE_URL = 'http://localhost:8001/api';
 
 /**
  * SimulationDashboard - Main integrated interface for aircraft detection simulation
  */
 export default function SimulationDashboard() {
+  const { theme, themeName, toggleTheme } = useTheme();
+  
   const [flights, setFlights] = useState([]);
   const [filteredFlights, setFilteredFlights] = useState([]);
   const [alerts, setAlerts] = useState([]);
@@ -25,10 +36,97 @@ export default function SimulationDashboard() {
   const [dayNight, setDayNight] = useState('Day');
   const [showAreaEditor, setShowAreaEditor] = useState(false);
   const [showAreaManager, setShowAreaManager] = useState(false);
+  const [isPlacementMode, setIsPlacementMode] = useState(false);
+  const [placementConfig, setPlacementConfig] = useState(null);
+  
+  // New enhanced states
+  const [showSettings, setShowSettings] = useState(false);
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [toasts, setToasts] = useState([]);
+  const [settings, setSettings] = useState(() => {
+    const saved = localStorage.getItem('app-settings');
+    return saved ? JSON.parse(saved) : {
+      soundEnabled: true,
+      notificationsEnabled: true,
+      autoRefresh: true,
+      refreshInterval: 1000,
+      showFlightTrails: true,
+      animationsEnabled: true,
+    };
+  });
+  
+  const searchInputRef = useRef(null);
+  
+  // Sound alerts hook
+  useSoundAlerts(flights, settings.soundEnabled);
+  
+  // Notifications hook
+  const { notifyNewAlert } = useNotifications(settings.notificationsEnabled);
+  
+  // Request notification permission on mount
+  useEffect(() => {
+    if (settings.notificationsEnabled) {
+      requestNotificationPermission();
+    }
+  }, [settings.notificationsEnabled]);
+  
+  // Add toast notification
+  const addToast = useCallback((message, type = 'info', duration = 5000) => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message, type, duration }]);
+  }, []);
+  
+  const removeToast = useCallback((id) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  }, []);
+  
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    onTogglePause: () => {
+      setIsRunning(prev => {
+        const newState = !prev;
+        addToast(newState ? 'Simulation resumed' : 'Simulation paused', 'info');
+        playClickSound();
+        return newState;
+      });
+    },
+    onReset: () => {
+      handleReset();
+      addToast('Simulation reset', 'warning');
+    },
+    onToggleAddMode: () => {
+      setIsPlacementMode(prev => !prev);
+      playClickSound();
+    },
+    onToggleTheme: () => {
+      toggleTheme();
+      playClickSound();
+    },
+    onToggleView: () => {
+      setViewMode(prev => {
+        const modes = ['split', 'radar', 'map'];
+        const idx = modes.indexOf(prev);
+        return modes[(idx + 1) % modes.length];
+      });
+      playClickSound();
+    },
+    onEscape: () => {
+      if (showSettings) setShowSettings(false);
+      else if (showShortcutsHelp) setShowShortcutsHelp(false);
+      else if (isPlacementMode) setIsPlacementMode(false);
+      else if (showAreaEditor) setShowAreaEditor(false);
+    },
+    onFocusSearch: () => {
+      searchInputRef.current?.focus();
+    },
+    enabled: !showSettings,
+  });
 
   // Fetch flights
   useEffect(() => {
-    if (!isRunning) return;
+    if (!isRunning || !settings.autoRefresh) return;
 
     const fetchFlights = async () => {
       try {
@@ -38,16 +136,28 @@ export default function SimulationDashboard() {
             Authorization: `Bearer ${token}`
           }
         });
-        setFlights(response.data);
+        
+        // Group by transponder_id and keep only the most recent position for each aircraft
+        const flightsData = response.data;
+        const latestFlights = {};
+        
+        flightsData.forEach(flight => {
+          const key = flight.transponder_id || `unknown_${flight.id}`;
+          if (!latestFlights[key] || new Date(flight.timestamp) > new Date(latestFlights[key].timestamp)) {
+            latestFlights[key] = flight;
+          }
+        });
+        
+        setFlights(Object.values(latestFlights));
       } catch (error) {
         console.error('Error fetching flights:', error);
       }
     };
 
     fetchFlights();
-    const interval = setInterval(fetchFlights, 2000);
+    const interval = setInterval(fetchFlights, settings.refreshInterval || 1000);
     return () => clearInterval(interval);
-  }, [isRunning]);
+  }, [isRunning, settings.autoRefresh, settings.refreshInterval]);
 
   // Fetch alerts
   useEffect(() => {
@@ -156,21 +266,144 @@ export default function SimulationDashboard() {
     setSelectedFilters(filters);
   };
 
+  const handlePlacementModeChange = (isActive, config) => {
+    setIsPlacementMode(isActive);
+    setPlacementConfig(config);
+    if (isActive) {
+      setShowAreaEditor(false);
+      setShowAreaManager(false);
+    }
+  };
+
+  const handlePlaceAircraft = async (lat, lng) => {
+    if (!isPlacementMode || !placementConfig) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      
+      // Generate transponder ID if needed
+      let transponder_id = null;
+      if (placementConfig.hasTransponder) {
+        const prefix = {
+          'commercial': 'COM',
+          'private': 'PVT',
+          'military': 'MIL',
+          'helicopter': 'HEL',
+          'drone': 'DRN'
+        }[placementConfig.aircraftType] || 'UNK';
+        transponder_id = `${prefix}${Math.floor(Math.random() * 9000) + 1000}`;
+      }
+
+      // Register manual flight (will create trajectory through zone)
+      const registerResponse = await axios.post(
+        `${API_BASE_URL}/simulator/manual/register`,
+        {
+          transponder_id: transponder_id,
+          latitude: lat,
+          longitude: lng,
+          altitude: placementConfig.altitude,
+          groundspeed: placementConfig.speed,
+          track: placementConfig.heading
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+
+      console.log(`✓ Registered manual flight: ${registerResponse.data.flight_id}`);
+      console.log(`  Aircraft will move through restricted zone`);
+      
+      // Dispatch event to update placement counter
+      window.dispatchEvent(new Event('aircraftPlaced'));
+    } catch (error) {
+      console.error('Error placing aircraft:', error);
+    }
+  };
+
   return (
-    <div className="simulation-dashboard min-h-screen bg-gray-950 text-white p-4">
+    <div className={`simulation-dashboard min-h-screen text-white p-4 transition-colors duration-300 ${
+      themeName === 'dark' ? 'bg-gray-950' : 
+      themeName === 'light' ? 'bg-gray-100 text-gray-900' : 
+      'bg-[#0c1810]'
+    }`}>
+      {/* Toast Notifications */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
+      
+      {/* Settings Modal */}
+      <SettingsPage 
+        isOpen={showSettings} 
+        onClose={() => setShowSettings(false)} 
+        settings={settings}
+        onSettingsChange={setSettings}
+      />
+      
+      {/* Keyboard Shortcuts Help */}
+      <KeyboardShortcutsHelp 
+        isOpen={showShortcutsHelp} 
+        onClose={() => setShowShortcutsHelp(false)} 
+      />
+      
       {/* Header */}
-      <div className="mb-4 bg-gradient-to-r from-blue-900 to-green-900 p-4 rounded-lg shadow-lg">
+      <div className={`mb-4 p-4 rounded-lg shadow-lg transition-all duration-300 ${
+        themeName === 'military' 
+          ? 'bg-gradient-to-r from-green-900/80 to-emerald-900/80' 
+          : 'bg-gradient-to-r from-blue-900 to-green-900'
+      }`}>
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-3">
+          <div className="flex-1">
+            <h1 className="text-2xl font-bold flex items-center gap-3">
               <span>🛡️</span>
               <span>AI-Based Aircraft Detection System</span>
             </h1>
             <p className="text-sm text-gray-300 mt-1">
-              Salem Air Defense Zone - Real-Time Simulation
+              Real-Time Air Defense Simulation
             </p>
           </div>
-          <div className="text-right">
+          
+          {/* Quick Actions */}
+          <div className="flex items-center gap-2 mr-4">
+            <button
+              onClick={() => setShowAnalytics(!showAnalytics)}
+              className={`p-2 rounded-lg transition-colors ${
+                showAnalytics ? 'bg-blue-600' : 'bg-gray-800/50 hover:bg-gray-700'
+              }`}
+              title="Analytics Dashboard"
+            >
+              📊
+            </button>
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              className={`p-2 rounded-lg transition-colors ${
+                showHistory ? 'bg-blue-600' : 'bg-gray-800/50 hover:bg-gray-700'
+              }`}
+              title="Incident History"
+            >
+              📋
+            </button>
+            <button
+              onClick={() => setShowShortcutsHelp(true)}
+              className="p-2 rounded-lg bg-gray-800/50 hover:bg-gray-700 transition-colors"
+              title="Keyboard Shortcuts (?)"
+            >
+              ⌨️
+            </button>
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-lg bg-gray-800/50 hover:bg-gray-700 transition-colors"
+              title="Toggle Theme (T)"
+            >
+              {themeName === 'dark' ? '🌙' : themeName === 'light' ? '☀️' : '🌲'}
+            </button>
+            <button
+              onClick={() => setShowSettings(true)}
+              className="p-2 rounded-lg bg-gray-800/50 hover:bg-gray-700 transition-colors"
+              title="Settings"
+            >
+              ⚙️
+            </button>
+          </div>
+          
+          <div className="text-right mr-24">
             <div className="text-sm text-gray-300">
               Weather: <span className="font-semibold text-blue-300">{weather.condition}</span>
             </div>
@@ -254,29 +487,48 @@ export default function SimulationDashboard() {
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-12 gap-4">
-        {/* Left Sidebar - Aircraft Categories */}
+        {/* Left Sidebar - Aircraft Categories or Analytics */}
         <div className="col-span-2">
-          <AircraftCategoriesMenu 
-            flights={flights}
-            onFilterChange={handleFilterChange}
-          />
+          {showAnalytics ? (
+            <AnalyticsDashboard 
+              flights={flights}
+              alerts={alerts}
+              restrictedAreas={allRestrictedAreas}
+            />
+          ) : showHistory ? (
+            <IncidentHistory 
+              alerts={alerts}
+              flights={flights}
+            />
+          ) : (
+            <AircraftCategoriesMenu 
+              flights={flights}
+              onFilterChange={handleFilterChange}
+            />
+          )}
         </div>
 
         {/* Center - Radar and/or Map */}
-        <div className="col-span-8">
+        <div className="col-span-7">
           {(viewMode === 'split' || viewMode === 'radar') && (
             <div className="mb-4 flex justify-center">
               <RadarSweep 
                 flights={filteredFlights}
                 restrictedArea={restrictedArea}
-                width={viewMode === 'radar' ? 600 : 500}
-                height={viewMode === 'radar' ? 600 : 500}
+                width={viewMode === 'radar' ? 600 : 400}
+                height={viewMode === 'radar' ? 600 : 400}
               />
             </div>
           )}
 
           {(viewMode === 'split' || viewMode === 'map') && (
             <div className="bg-gray-900 rounded-lg overflow-hidden relative" style={{ height: viewMode === 'map' ? '700px' : '500px' }}>
+              {/* Placement Mode Indicator */}
+              {isPlacementMode && (
+                <div className="absolute top-2 left-2 z-[1000] bg-green-600 text-white px-3 py-1 rounded-full text-sm font-bold animate-pulse">
+                  📍 PLACEMENT MODE - Click to place aircraft
+                </div>
+              )}
               <MapView 
                 flights={filteredFlights}
                 restrictedArea={restrictedArea}
@@ -288,6 +540,10 @@ export default function SimulationDashboard() {
                   fetchRestrictedAreas();
                 }}
                 onEditorClose={() => setShowAreaEditor(false)}
+                isPlacementMode={isPlacementMode}
+                placementConfig={placementConfig}
+                onPlaceAircraft={handlePlaceAircraft}
+                showTrails={settings.showFlightTrails}
               />
             </div>
           )}
@@ -301,7 +557,7 @@ export default function SimulationDashboard() {
                   <div className="font-bold text-red-300">ACTIVE ALERTS: {alerts.length}</div>
                   <div className="text-sm text-red-200">
                     {alerts.slice(0, 3).map((alert, i) => (
-                      <div key={i}>{alert.message}</div>
+                      <div key={i} className="truncate">{alert.message?.slice(0, 60)}...</div>
                     ))}
                   </div>
                 </div>
@@ -311,7 +567,16 @@ export default function SimulationDashboard() {
         </div>
 
         {/* Right Sidebar - Control Panel */}
-        <div className="col-span-2 space-y-4">
+        <div className="col-span-3 space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto">
+          {/* Flight Simulator Control - Most Important */}
+          <FlightSimulatorControl />
+          
+          {/* Manual Flight Placer */}
+          <ManualFlightPlacer 
+            onPlacementModeChange={handlePlacementModeChange}
+          />
+          
+          {/* Control Panel */}
           <ControlPanel 
             onStart={handleStart}
             onPause={handlePause}

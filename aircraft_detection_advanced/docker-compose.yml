@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  # Video processing pipeline
+  pipeline:
+    build: .
+    container_name: aircraft_detection_pipeline
+    volumes:
+      - ./sample_videos:/app/sample_videos:ro
+      - ./outputs:/app/outputs
+      - ./config.yaml:/app/config.yaml:ro
+      - ./homography.json:/app/homography.json:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: python -m src.main --config config.yaml
+
+  # API server
+  server:
+    build: .
+    container_name: aircraft_detection_api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./outputs:/app/outputs:ro
+      - ./config.yaml:/app/config.yaml:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+      - API_KEY=${API_KEY:-dev_key_12345}
+    command: python -m src.app
+    depends_on:
+      - pipeline
+    restart: unless-stopped
+
+networks:
+  default:
+    name: aircraft_detection_network
