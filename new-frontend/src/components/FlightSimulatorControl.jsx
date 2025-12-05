@@ -4,9 +4,6 @@ import axios from 'axios';
 
 const API_BASE_URL = 'http://localhost:8001/api';
 
-// Check if demo mode is active
-const isDemoMode = () => localStorage.getItem('demoMode') === 'true';
-
 export default function FlightSimulatorControl() {
   const [numFlights, setNumFlights] = useState(1);
   const [aircraftType, setAircraftType] = useState('');
@@ -16,11 +13,6 @@ export default function FlightSimulatorControl() {
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationInterval, setSimulationInterval] = useState(null);
   const [message, setMessage] = useState('');
-  const [inDemoMode, setInDemoMode] = useState(isDemoMode());
-
-  useEffect(() => {
-    setInDemoMode(isDemoMode());
-  }, []);
 
   // Direction presets
   const directionPresets = [
@@ -35,18 +27,6 @@ export default function FlightSimulatorControl() {
   ];
 
   const startSimulation = async () => {
-    // Demo mode - dispatch event to add flights
-    if (inDemoMode) {
-      // Trigger adding demo flights via custom event
-      const event = new CustomEvent('addDemoFlights', { 
-        detail: { count: numFlights, heading, speed, aircraftType } 
-      });
-      window.dispatchEvent(event);
-      setActiveFlights(prev => prev + numFlights);
-      setMessage(`✓ Added ${numFlights} demo flight(s) at ${speed} kts, heading ${heading}°`);
-      return;
-    }
-
     try {
       const token = localStorage.getItem('token');
       const response = await axios.post(
@@ -79,13 +59,6 @@ export default function FlightSimulatorControl() {
       }
       setIsSimulating(false);
       setMessage('⏸ Simulation paused');
-      return;
-    }
-
-    // Demo mode - simulation runs automatically
-    if (inDemoMode) {
-      setIsSimulating(true);
-      setMessage('▶ Demo simulation running - aircraft move automatically');
       return;
     }
 
@@ -127,14 +100,6 @@ export default function FlightSimulatorControl() {
       setSimulationInterval(null);
     }
     setIsSimulating(false);
-
-    // Demo mode - dispatch event to clear flights
-    if (inDemoMode) {
-      window.dispatchEvent(new CustomEvent('clearDemoFlights'));
-      setActiveFlights(0);
-      setMessage('✓ Cleared all demo flights');
-      return;
-    }
 
     try {
       const token = localStorage.getItem('token');

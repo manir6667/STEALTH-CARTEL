@@ -2,14 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authAPI } from '../services/api';
 
-// Demo mode credentials
-const DEMO_CREDENTIALS = {
-  email: 'admin@example.com',
-  password: 'strongpassword',
-  token: 'demo_token_for_preview_mode',
-  role: 'admin'
-};
-
 export default function Login() {
   const [email, setEmail] = useState('admin@example.com');
   const [password, setPassword] = useState('strongpassword');
@@ -35,16 +27,7 @@ export default function Login() {
         navigate('/dashboard');
       }
     } catch (err) {
-      // If backend is not available, allow demo login
-      if (email === DEMO_CREDENTIALS.email && password === DEMO_CREDENTIALS.password) {
-        console.log('🎮 Demo mode activated - Backend not available');
-        localStorage.setItem('token', DEMO_CREDENTIALS.token);
-        localStorage.setItem('role', DEMO_CREDENTIALS.role);
-        localStorage.setItem('demoMode', 'true');
-        navigate('/dashboard');
-      } else {
-        setError('Invalid credentials. Use demo credentials shown below.');
-      }
+      setError(err.response?.data?.detail || 'Login failed. Please ensure backend is running.');
     } finally {
       setIsLoading(false);
     }
@@ -139,11 +122,11 @@ export default function Login() {
           </div>
         </form>
 
-        <div className="mt-6 p-4 bg-gradient-to-r from-gray-800 to-gray-900 rounded border-l-4 border-yellow-500">
-          <p className="text-xs text-yellow-400 font-bold mb-2 uppercase tracking-wide">⚠️ Demo Credentials:</p>
+        <div className="mt-6 p-4 bg-gradient-to-r from-gray-800 to-gray-900 rounded border-l-4 border-green-500">
+          <p className="text-xs text-green-400 font-bold mb-2 uppercase tracking-wide">✓ Default Admin Credentials:</p>
           <p className="text-xs text-gray-300 font-mono">Email: admin@example.com</p>
           <p className="text-xs text-gray-300 font-mono">Password: strongpassword</p>
-          <p className="text-xs text-red-400 mt-2 italic">🔒 Classified Access Level: ADMIN</p>
+          <p className="text-xs text-blue-400 mt-2 italic">🔒 Access Level: ADMIN</p>
         </div>
       </div>
     </div>
