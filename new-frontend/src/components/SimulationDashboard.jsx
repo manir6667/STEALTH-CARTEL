@@ -14,6 +14,10 @@ import { useKeyboardShortcuts, KeyboardShortcutsHelp } from './KeyboardShortcuts
 import { useSoundAlerts, playSuccessSound, playClickSound } from './SoundManager';
 import { ToastContainer, useNotifications, requestNotificationPermission } from './NotificationManager';
 import { useTheme } from '../context/ThemeContext';
+import { SkeletonDashboard, SkeletonFlightList, SkeletonControlPanel } from './Skeleton';
+import { VirtualFlightList } from './VirtualList';
+import ThemeToggle, { ThemeSelector } from './ThemeToggle';
+import { OfflineIndicator, UpdatePrompt, useOfflineStatus } from '../services/serviceWorker.jsx';
 import axios from 'axios';
 
 const API_BASE_URL = 'http://localhost:8001/api';
@@ -23,6 +27,7 @@ const API_BASE_URL = 'http://localhost:8001/api';
  */
 export default function SimulationDashboard() {
   const { theme, themeName, toggleTheme } = useTheme();
+  const { isOnline } = useOfflineStatus();
   
   const [flights, setFlights] = useState([]);
   const [filteredFlights, setFilteredFlights] = useState([]);
@@ -45,6 +50,8 @@ export default function SimulationDashboard() {
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [toasts, setToasts] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedFlightIndex, setSelectedFlightIndex] = useState(-1);
   const [settings, setSettings] = useState(() => {
     const saved = localStorage.getItem('app-settings');
     return saved ? JSON.parse(saved) : {
@@ -121,8 +128,49 @@ export default function SimulationDashboard() {
     onFocusSearch: () => {
       searchInputRef.current?.focus();
     },
+    onOpenSettings: () => {
+      setShowSettings(true);
+      playClickSound();
+    },
+    onShowHelp: () => {
+      setShowShortcutsHelp(prev => !prev);
+      playClickSound();
+    },
+    onToggleAnalytics: () => {
+      setShowAnalytics(prev => !prev);
+      setShowHistory(false);
+      playClickSound();
+    },
+    onToggleHistory: () => {
+      setShowHistory(prev => !prev);
+      setShowAnalytics(false);
+      playClickSound();
+    },
+    onToggleZoneEditor: () => {
+      setShowAreaEditor(prev => !prev);
+      if (showAreaManager) setShowAreaManager(false);
+      playClickSound();
+    },
+    onNavigateUp: () => {
+      setSelectedFlightIndex(prev => Math.max(0, prev - 1));
+    },
+    onNavigateDown: () => {
+      setSelectedFlightIndex(prev => Math.min(filteredFlights.length - 1, prev + 1));
+    },
+    onSelect: () => {
+      if (selectedFlightIndex >= 0 && filteredFlights[selectedFlightIndex]) {
+        console.log('Selected flight:', filteredFlights[selectedFlightIndex]);
+        addToast(`Selected: ${filteredFlights[selectedFlightIndex].transponder_id || 'Unknown'}`, 'info');
+      }
+    },
     enabled: !showSettings,
   });
+
+  // Set loading to false after initial data fetch
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 1500);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Fetch flights
   useEffect(() => {
@@ -322,12 +370,23 @@ export default function SimulationDashboard() {
     }
   };
 
+  // Show loading skeleton while initial data loads
+  if (isLoading) {
+    return <SkeletonDashboard />;
+  }
+
   return (
     <div className={`simulation-dashboard min-h-screen text-white p-4 transition-colors duration-300 ${
       themeName === 'dark' ? 'bg-gray-950' : 
       themeName === 'light' ? 'bg-gray-100 text-gray-900' : 
       'bg-[#0c1810]'
     }`}>
+      {/* Offline Indicator */}
+      <OfflineIndicator />
+      
+      {/* Update Prompt for new service worker version */}
+      <UpdatePrompt />
+      
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
       

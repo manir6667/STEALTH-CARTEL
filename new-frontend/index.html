@@ -3,11 +3,33 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="AI-Based Aircraft Detection System - Real-Time Air Defense Simulation" />
+    <meta name="theme-color" content="#0a0f1c" />
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Icons -->
+    <link rel="icon" type="image/svg+xml" href="/icons/favicon.svg" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    
     <title>Aircraft Detection System</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Preconnect for performance -->
+    <link rel="preconnect" href="http://localhost:8001" />
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    
+    <!-- No-JS Fallback -->
+    <noscript>
+      <div style="padding: 20px; text-align: center; background: #1f2937; color: white; min-height: 100vh;">
+        <h1>Aircraft Detection System</h1>
+        <p>JavaScript is required to run this application.</p>
+        <p>Please enable JavaScript in your browser settings.</p>
+      </div>
+    </noscript>
   </body>
 </html>
