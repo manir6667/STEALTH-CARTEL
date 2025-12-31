@@ -82,7 +82,7 @@ export class WebSocketService {
   }
 
   connect() {
-    this.ws = new WebSocket('ws://localhost:8001/ws');
+    this.ws = new WebSocket('ws://localhost:8000/ws');
     
     this.ws.onopen = () => {
       console.log('WebSocket connected');

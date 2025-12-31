@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Polygon, useMapEvents } from 'react-leaflet';
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8001/api';
+const API_BASE_URL = 'http://localhost:8000/api';
 
 /**
  * RestrictedAreaEditor - Draw custom restricted zones on the map
@@ -68,14 +68,15 @@ export default function RestrictedAreaEditor({ onAreaCreated, onClose }) {
 
       const token = localStorage.getItem('token');
       await axios.post(
-        `${API_BASE_URL}/restricted-areas`,
+        `${API_BASE_URL}/restricted-areas/`,
         {
           name: areaName,
           polygon_json: JSON.stringify(polygonGeoJSON)
         },
         {
           headers: {
-            Authorization: `Bearer ${token}`
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
           }
         }
       );
@@ -87,7 +88,8 @@ export default function RestrictedAreaEditor({ onAreaCreated, onClose }) {
       if (onClose) onClose();
     } catch (error) {
       console.error('Error creating restricted area:', error);
-      alert('Failed to create restricted area. Please try again.');
+      const errorMsg = error.response?.data?.detail || error.message || 'Unknown error';
+      alert(`Failed to create restricted area: ${errorMsg}`);
     }
   };
 
